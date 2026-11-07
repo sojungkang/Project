@@ -295,7 +295,10 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
     return Array.isArray(v) ? v.filter(Boolean) : [];
   }
   const isTest = r => r["카테고리"] === "테스트" || /^TEST\b/.test(r["제목"] || "");
-  const sectionOf = k => k === "drop" ? DROP : SECTIONS.find(x => x.k === k);
+  // 별로예요 scraps stay in Notion untouched; this page just keeps them out of every list.
+  const isDisliked = r => r["피드백"] === "별로예요";
+  const DISLIKED = { k: "dislike", label: "별로예요", match: () => true, title: "별로예요로 숨긴 스크랩", hint: "별로예요를 누른 스크랩이에요. 노션에는 그대로 있고 이 페이지에서만 숨겨요. 별로예요를 다시 누르면 원래 목록으로 돌아가요." };
+  const sectionOf = k => k === "drop" ? DROP : k === "dislike" ? DISLIKED : SECTIONS.find(x => x.k === k);
 
   /* ---------- data ---------- */
   function parsePayload(res) {
@@ -406,7 +409,9 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
 
   /* ---------- render ---------- */
   function render() {
-    const rows = state.rows;
+    const all = state.rows;
+    const disliked = all.filter(isDisliked);
+    const rows = all.filter(r => !isDisliked(r));
     const t = today();
     const count = sec => rows.filter(r => sec.match(r["상태"])).length;
     const inboxToday = rows.filter(r => SECTIONS[0].match(r["상태"]) && (r["date:보낸 날짜:start"] || "").slice(0, 10) === t).length;
@@ -435,12 +440,18 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
       m.innerHTML = `<span>노션 기준 ${hh} 불러옴 · 전체 ${rows.length}건${state.partial ? " (일부만 불러옴)" : ""}</span><span>· 매일 오전 9시(영국) 자동 새로고침</span>` +
         (dropN ? `<button type="button" class="drop-link" id="dropLink">${state.section === "drop" ? "인박스로 돌아가기" : `제외 ${dropN}건 보기`}</button>` : "");
       const dl = $("dropLink"); if (dl) dl.onclick = () => go(state.section === "drop" ? "inbox" : "drop");
+      if (disliked.length || state.section === "dislike") {
+        const b = document.createElement("button"); b.type = "button"; b.className = "drop-link";
+        b.textContent = state.section === "dislike" ? "인박스로 돌아가기" : `별로예요 ${disliked.length}건 보기`;
+        b.onclick = () => go(state.section === "dislike" ? "inbox" : "dislike");
+        m.appendChild(b);
+      }
     } else if (!state.loading) {
       m.textContent = "아직 불러온 스크랩이 없어요.";
     }
 
     const sec = sectionOf(state.section);
-    const inSec = rows.filter(r => sec.match(r["상태"]));
+    const inSec = state.section === "dislike" ? disliked : rows.filter(r => sec.match(r["상태"]));
 
     // kind chips
     const kinds = {}; inSec.forEach(r => { const k = r["종류"] || "기타"; kinds[k] = (kinds[k] || 0) + 1; });
@@ -565,7 +576,9 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
       const next = row["피드백"] === b.dataset.fb ? null : b.dataset.fb;
       const props = { "피드백": next };
       if (next) { props["date:피드백 시각:start"] = new Date().toISOString(); props["date:피드백 시각:is_datetime"] = 1; }
-      setProps(row, props, null, next ? `피드백 ‘${next}’ 저장했어요` : "피드백을 지웠어요");
+      const undo = { "피드백": row["피드백"] ?? null };
+      const msg = next === "별로예요" ? "별로예요 저장 · 목록에서 숨겼어요" : next ? `피드백 ‘${next}’ 저장했어요` : row["피드백"] === "별로예요" ? "별로예요를 풀고 목록으로 돌려놨어요" : "피드백을 지웠어요";
+      setProps(row, props, undo, msg);
     });
   }
 
