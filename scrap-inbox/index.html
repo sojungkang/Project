@@ -1,0 +1,462 @@
+<title>해외취업 스크랩함</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Nanum+Myeongjo:wght@700;800&display=swap">
+<style>
+/* Layout: one narrow reading column — status tiles on top, filter chips, then a stack of scrap cards to triage one by one. */
+:root {
+  --bg: #f6f6f3;
+  --surface: #ffffff;
+  --ink: #1d211f;
+  --muted: #6b716d;
+  --line: #e3e5e0;
+  --accent: #1f6b4f;        /* deep green: primary action */
+  --accent-ink: #ffffff;
+  --today: #c0630f;         /* orange: "오늘" / new marker */
+  --tile-dark: #1f2421;
+  --tile-dark-ink: #f4f5f2;
+  --s-todo: #2f5fb3;
+  --s-later: #a3620a;
+  --s-ref: #1f6b4f;
+  --s-drop: #b23b3b;
+  --chip-on: #1f2421;
+  --chip-on-ink: #f4f5f2;
+  --warn-bg: #fbf1e4;
+  --font-display: "Nanum Myeongjo", "Noto Serif KR", Georgia, serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141715; --surface: #1c201d; --ink: #e9ece8; --muted: #9aa29c; --line: #2d332f;
+    --accent: #3f9a75; --accent-ink: #0d120f; --today: #e8913f;
+    --tile-dark: #e9ece8; --tile-dark-ink: #141715;
+    --s-todo: #7aa2ec; --s-later: #e0a54a; --s-ref: #5cc196; --s-drop: #e57b7b;
+    --chip-on: #e9ece8; --chip-on-ink: #141715; --warn-bg: #2b2418;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141715; --surface: #1c201d; --ink: #e9ece8; --muted: #9aa29c; --line: #2d332f;
+  --accent: #3f9a75; --accent-ink: #0d120f; --today: #e8913f;
+  --tile-dark: #e9ece8; --tile-dark-ink: #141715;
+  --s-todo: #7aa2ec; --s-later: #e0a54a; --s-ref: #5cc196; --s-drop: #e57b7b;
+  --chip-on: #e9ece8; --chip-on-ink: #141715; --warn-bg: #2b2418;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 72px;
+}
+.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: 2rem; margin: 0; letter-spacing: -0.01em; }
+.btn-ghost {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  padding: 8px 16px; font-size: 0.95rem;
+}
+.btn-ghost[disabled] { opacity: .5; cursor: default; }
+
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.tile {
+  text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+  padding: 14px 14px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+.tile .n { font-family: var(--font-display); font-size: 2rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile .lbl { font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.tile .sub { color: var(--muted); font-size: 0.82rem; line-height: 1.4; }
+.tile[data-k="todo"] .n { color: var(--s-todo); }
+.tile[data-k="later"] .n { color: var(--s-later); }
+.tile[data-k="ref"] .n { color: var(--s-ref); }
+.tile[aria-pressed="true"] { background: var(--tile-dark); color: var(--tile-dark-ink); border-color: var(--tile-dark); }
+.tile[aria-pressed="true"] .n { color: inherit; }
+.tile[aria-pressed="true"] .sub { color: inherit; opacity: .72; }
+.dot-new { background: var(--today); color: #fff; font-size: 0.7rem; font-weight: 700; border-radius: 99px; width: 18px; height: 18px; display: inline-grid; place-items: center; }
+@media (max-width: 520px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.meta { color: var(--muted); font-size: 0.9rem; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.meta .drop-link { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 99px;
+  padding: 5px 14px; font-size: 0.9rem; white-space: nowrap;
+}
+.chip .c { color: var(--muted); font-size: 0.82rem; margin-left: 3px; font-variant-numeric: tabular-nums; }
+.chip[aria-pressed="true"] { background: var(--chip-on); color: var(--chip-on-ink); border-color: var(--chip-on); }
+.chip[aria-pressed="true"] .c { color: inherit; opacity: .7; }
+.chips.small .chip { font-size: 0.82rem; padding: 3px 11px; }
+
+.hint { color: var(--muted); margin: 0; font-size: 0.92rem; }
+h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; margin: 4px 0 0; }
+
+.list { display: flex; flex-direction: column; gap: 14px; }
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 20px;
+  padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+}
+.card.busy { opacity: .55; pointer-events: none; }
+.src { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; color: var(--muted); font-size: 0.88rem; }
+.src .kind { font-weight: 700; color: var(--ink); }
+.src .when { font-weight: 700; color: var(--muted); }
+.src .when.today { color: var(--today); }
+.card h3 { margin: 0; font-size: 1.08rem; line-height: 1.45; font-weight: 700; text-wrap: balance; overflow-wrap: anywhere; }
+.card p.sum { margin: 0; color: var(--ink); opacity: .86; overflow-wrap: anywhere; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.tag { border: 1px solid var(--line); border-radius: 99px; padding: 1px 10px; font-size: 0.8rem; color: var(--muted); }
+.tag.state { font-weight: 600; }
+.tag.state[data-s="쓸래요"] { color: var(--s-todo); border-color: currentColor; }
+.tag.state[data-s="나중에"] { color: var(--s-later); border-color: currentColor; }
+.tag.state[data-s="참고"] { color: var(--s-ref); border-color: currentColor; }
+.tag.state[data-s="제외"] { color: var(--s-drop); border-color: currentColor; }
+.react { color: var(--muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.links { display: flex; gap: 16px; font-size: 0.92rem; }
+.links a { color: var(--accent); text-underline-offset: 3px; }
+.links a.alt { color: var(--muted); }
+.actions { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row .rl { color: var(--muted); font-size: 0.85rem; font-weight: 600; min-width: 44px; }
+.act {
+  border: 1.5px solid var(--c, var(--line)); color: var(--c, var(--ink)); background: transparent;
+  border-radius: 12px; padding: 5px 14px; font-size: 0.92rem; font-weight: 500;
+}
+.act[aria-pressed="true"] { background: var(--c); color: var(--surface); }
+.act.todo { --c: var(--s-todo); } .act.later { --c: var(--s-later); } .act.ref { --c: var(--s-ref); } .act.drop { --c: var(--s-drop); }
+.act.fb { --c: var(--muted); font-size: 0.85rem; padding: 3px 12px; }
+.card .err { color: var(--s-drop); font-size: 0.85rem; margin: 0; }
+
+.notice { background: var(--warn-bg); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.notice p { margin: 0; }
+.notice .btn-primary { align-self: flex-start; }
+.btn-primary { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 12px; padding: 8px 16px; font-weight: 600; }
+.empty { text-align: center; color: var(--muted); padding: 32px 12px; border: 1px dashed var(--line); border-radius: 20px; }
+.more { align-self: center; }
+
+.skel { height: 150px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); }
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  background: var(--tile-dark); color: var(--tile-dark-ink); border-radius: 14px;
+  padding: 10px 14px 10px 18px; display: flex; gap: 14px; align-items: center;
+  max-width: calc(100% - 32px); font-size: 0.92rem; z-index: 20;
+}
+.toast button { background: none; border: 0; color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+  .card, .tile, .chip, .act { transition: opacity .15s, background-color .15s, color .15s; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>해외취업 스크랩함</h1>
+    <button class="btn-ghost" id="refresh" type="button">새로고침</button>
+  </header>
+
+  <div class="tiles" id="tiles" role="group" aria-label="상태별 보기"></div>
+
+  <div class="meta" id="meta">노션 Contents scrape에서 불러오는 중…</div>
+
+  <div id="notice" hidden></div>
+
+  <div class="chips" id="kindChips" role="group" aria-label="종류"></div>
+  <div class="chips small" id="catChips" role="group" aria-label="카테고리"></div>
+
+  <p class="hint" id="hint"></p>
+
+  <h2 id="listTitle">새 스크랩</h2>
+  <div class="list" id="list">
+    <div class="skel"></div><div class="skel"></div>
+  </div>
+  <button class="btn-ghost more" id="more" type="button" hidden>더 보기</button>
+</div>
+
+<div class="toast" id="toast" hidden role="status"><span id="toastMsg"></span><button id="toastUndo" type="button">되돌리기</button></div>
+
+<script>
+(() => {
+  const SERVER = "Notion";
+  const VIEW_URL = "view://4118c656-1798-81b9-9aad-000cd3e810b2"; // Contents scrape · 상태별 (보낸 날짜 내림차순)
+  const PAGE = 30;
+
+  const SECTIONS = [
+    { k: "inbox", label: "Inbox", match: s => !s || s === "미검토", title: "새 스크랩", hint: "여기 있는 것만 정하면 오늘 체크는 끝이에요. 쓸래요·나중에·참고·제외 중 하나를 고르면 노션 상태가 바로 바뀌어요." },
+    { k: "todo",  label: "쓸래요", match: s => s === "쓸래요", title: "쓸래요", hint: "콘텐츠로 쓰기로 한 스크랩이에요. 다 쓰면 참고로 옮겨 두세요." },
+    { k: "later", label: "나중에", match: s => s === "나중에", title: "나중에", hint: "보류해 둔 스크랩이에요. 시간 날 때 다시 정해요." },
+    { k: "ref",   label: "참고", match: s => s === "참고", title: "참고 라이브러리", hint: "알아 두기만 하면 되는 자료를 모아 둔 곳이에요." },
+  ];
+  const DROP = { k: "drop", label: "제외", match: s => s === "제외", title: "제외한 스크랩", hint: "제외한 스크랩이에요. 잘못 뺐다면 다시 상태를 고르세요." };
+  const ACTIONS = [
+    { s: "쓸래요", cls: "todo", tip: "콘텐츠로 쓸 때" },
+    { s: "나중에", cls: "later", tip: "보류" },
+    { s: "참고", cls: "ref", tip: "알아 두기만" },
+    { s: "제외", cls: "drop", tip: "관련 없음" },
+  ];
+
+  const $ = id => document.getElementById(id);
+  const state = { rows: [], loadedAt: null, section: "inbox", kind: "", cat: "", shown: PAGE, loading: false, partial: false };
+  let mcp = null, lastUndo = null, toastTimer = null;
+
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const clean = s => String(s ?? "").replace(/\\([~*_\[\]()#>`|-])/g, "$1");
+  const localDay = d => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 10); };
+  const today = () => localDay(new Date());
+  function when(day) {
+    if (!day) return { t: "", today: false };
+    const diff = Math.round((new Date(today()) - new Date(day.slice(0, 10))) / 86400000);
+    if (diff <= 0) return { t: "오늘", today: true };
+    if (diff === 1) return { t: "어제", today: false };
+    if (diff < 7) return { t: diff + "일 전", today: false };
+    return { t: day.slice(5, 10).replace("-", "/"), today: false };
+  }
+  const isTest = r => r["카테고리"] === "테스트" || /^TEST\b/.test(r["제목"] || "");
+  const sectionOf = k => k === "drop" ? DROP : SECTIONS.find(x => x.k === k);
+
+  /* ---------- data ---------- */
+  function parsePayload(res) {
+    let p = res && res.payload;
+    if (typeof p === "string") { try { p = JSON.parse(p); } catch { p = null; } }
+    if (!p || !Array.isArray(p.results)) throw { code: "tool_error", message: "노션 응답 형식을 읽지 못했어요." };
+    return p;
+  }
+
+  async function fetchAll(force) {
+    const rows = [];
+    let cursor = null, pages = 0;
+    do {
+      const input = { data: { mode: "view", view_url: VIEW_URL, page_size: 100 } };
+      if (cursor) input.data.start_cursor = cursor;
+      let res;
+      try {
+        res = await mcp.callTool(SERVER, "notion-query-data-sources", input, { cache: { staleTime: 5 * 60000, gcTime: 30 * 60000, refresh: !!force } });
+      } catch (e) {
+        if (e && e.retryable && pages === 0) {
+          await new Promise(r => setTimeout(r, Math.min(e.retryAfterMs || 1500 + Math.random() * 1500, 8000)));
+          res = await mcp.callTool(SERVER, "notion-query-data-sources", input, { cache: { staleTime: 5 * 60000, gcTime: 30 * 60000, refresh: !!force } });
+        } else if (rows.length) { state.partial = true; break; }
+        else throw e;
+      }
+      const p = parsePayload(res);
+      rows.push(...p.results);
+      if (pages === 0) state.loadedAt = res.cache ? new Date(res.cache.storedAt) : new Date();
+      cursor = p.has_more ? p.next_cursor : null;
+      pages++;
+    } while (cursor && pages < 20);
+    return rows.filter(r => !isTest(r));
+  }
+
+  async function load(force) {
+    if (!mcp || state.loading) return;
+    state.loading = true; state.partial = false;
+    $("refresh").disabled = true; $("refresh").textContent = "불러오는 중…";
+    try {
+      state.rows = await fetchAll(force);
+      hideNotice();
+    } catch (e) {
+      showError(e, () => load(true));
+    } finally {
+      state.loading = false;
+      $("refresh").disabled = false; $("refresh").textContent = "새로고침";
+      render();
+    }
+  }
+
+  async function setProps(row, props, undoProps, msg) {
+    const card = document.querySelector(`[data-id="${CSS.escape(row.url)}"]`);
+    const before = {}; Object.keys(props).forEach(k => before[k] = row[k]);
+    Object.assign(row, props);
+    if (card) card.classList.add("busy");
+    try {
+      await mcp.callTool(SERVER, "notion-update-page", { page_id: row.url, command: "update_properties", properties: props }, { cache: false });
+      mcp.invalidate(SERVER, "notion-query-data-sources").catch(() => {});
+      render();
+      if (msg) toast(msg, undoProps ? () => setProps(row, undoProps, null, "되돌렸어요") : null);
+    } catch (e) {
+      Object.assign(row, before);
+      render();
+      const c = document.querySelector(`[data-id="${CSS.escape(row.url)}"]`);
+      if (c) {
+        const p = document.createElement("p"); p.className = "err";
+        p.textContent = errorText(e) + (e && (e.code === "server_unavailable" || e.code === "upstream_error") ? " 노션에서 반영됐는지 새로고침으로 확인해 주세요." : "");
+        c.appendChild(p);
+      }
+    }
+  }
+
+  /* ---------- errors ---------- */
+  function errorText(e) {
+    const code = e && e.code;
+    switch (code) {
+      case "needs_reauth": return "노션 연결이 만료됐어요. claude.ai 설정 → 커넥터에서 Notion을 다시 연결해 주세요.";
+      case "server_not_connected": return "Notion 커넥터가 없어요. claude.ai 설정 → 커넥터에서 Notion을 추가해 주세요.";
+      case "selection_required": return "Notion 커넥터가 여러 개예요. 뜨는 안내에서 사용할 계정을 골라 주세요.";
+      case "not_in_manifest": return "이 페이지에서 Notion 사용이 꺼져 있어요. 페이지의 권한 메뉴에서 Notion을 허용해 주세요.";
+      case "approval_required": return "노션을 읽으려면 허용이 필요해요.";
+      case "blocked_by_policy": return "조직 정책으로 이 노션 도구를 쓸 수 없어요.";
+      case "server_unavailable": return "노션이 잠시 응답하지 않아요. 조금 뒤 다시 시도해 주세요.";
+      case "tool_error": return "노션이 요청을 거절했어요: " + String(e.message || "").slice(0, 160);
+      default: return "노션과 연결하지 못했어요." + (e && e.message ? " (" + String(e.message).slice(0, 120) + ")" : "");
+    }
+  }
+  function showError(e, retry) {
+    const n = $("notice"); n.hidden = false; n.className = "notice"; n.innerHTML = "";
+    const p = document.createElement("p"); p.textContent = errorText(e); n.appendChild(p);
+    const canRetry = ["approval_required", "server_unavailable", "upstream_error", "tool_error", "rate_limited"].includes(e && e.code) || !(e && e.code);
+    if (canRetry && retry) {
+      const b = document.createElement("button"); b.className = "btn-primary"; b.type = "button";
+      b.textContent = e && e.code === "approval_required" ? "노션 허용하고 불러오기" : "다시 불러오기";
+      b.onclick = retry; n.appendChild(b);
+    }
+    if (e && (e.code === "needs_reauth" || e.code === "server_not_connected" || e.code === "not_in_manifest" || e.code === "blocked_by_policy")) state.rows = [];
+  }
+  function hideNotice() { $("notice").hidden = true; }
+
+  function toast(msg, undo) {
+    $("toastMsg").textContent = msg;
+    $("toastUndo").hidden = !undo; lastUndo = undo;
+    $("toast").hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { $("toast").hidden = true; lastUndo = null; }, 5000);
+  }
+  $("toastUndo").onclick = () => { const u = lastUndo; $("toast").hidden = true; lastUndo = null; if (u) u(); };
+
+  /* ---------- render ---------- */
+  function render() {
+    const rows = state.rows;
+    const t = today();
+    const count = sec => rows.filter(r => sec.match(r["상태"])).length;
+    const inboxToday = rows.filter(r => SECTIONS[0].match(r["상태"]) && (r["date:보낸 날짜:start"] || "").slice(0, 10) === t).length;
+    const weekAgo = localDay(new Date(Date.now() - 6 * 86400000));
+    const refWeek = rows.filter(r => r["상태"] === "참고" && (r["date:보낸 날짜:start"] || "") >= weekAgo).length;
+    const subs = {
+      inbox: `오늘 들어온 것 ${inboxToday}`,
+      todo: "콘텐츠로 쓸 것",
+      later: "보류 · 다시 정하기",
+      ref: `최근 1주 ${refWeek}`,
+    };
+    $("tiles").innerHTML = SECTIONS.map(s => `
+      <button type="button" class="tile" data-k="${s.k}" aria-pressed="${state.section === s.k}">
+        <span class="n">${rows.length || state.loadedAt ? count(s) : "–"}</span>
+        <span class="lbl">${esc(s.label)}${s.k === "inbox" && inboxToday ? `<span class="dot-new" aria-label="새 항목">N</span>` : ""}</span>
+        <span class="sub">${subs[s.k]}</span>
+      </button>`).join("");
+    $("tiles").querySelectorAll(".tile").forEach(b => b.onclick = () => go(b.dataset.k));
+
+    // meta line
+    const m = $("meta");
+    if (state.loadedAt) {
+      const hh = state.loadedAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
+      const dropN = count(DROP);
+      m.innerHTML = `<span>노션 기준 ${hh} 불러옴 · 전체 ${rows.length}건${state.partial ? " (일부만 불러옴)" : ""}</span>` +
+        (dropN ? `<button type="button" class="drop-link" id="dropLink">${state.section === "drop" ? "인박스로 돌아가기" : `제외 ${dropN}건 보기`}</button>` : "");
+      const dl = $("dropLink"); if (dl) dl.onclick = () => go(state.section === "drop" ? "inbox" : "drop");
+    } else if (!state.loading) {
+      m.textContent = "아직 불러온 스크랩이 없어요.";
+    }
+
+    const sec = sectionOf(state.section);
+    const inSec = rows.filter(r => sec.match(r["상태"]));
+
+    // kind chips
+    const kinds = {}; inSec.forEach(r => { const k = r["종류"] || "기타"; kinds[k] = (kinds[k] || 0) + 1; });
+    if (state.kind && !kinds[state.kind]) state.kind = "";
+    const kindList = Object.entries(kinds).sort((a, b) => b[1] - a[1]);
+    $("kindChips").innerHTML = inSec.length ? [`<button type="button" class="chip" data-v="" aria-pressed="${!state.kind}">전체<span class="c">${inSec.length}</span></button>`]
+      .concat(kindList.map(([k, n]) => `<button type="button" class="chip" data-v="${esc(k)}" aria-pressed="${state.kind === k}">${esc(k)}<span class="c">${n}</span></button>`)).join("") : "";
+    $("kindChips").querySelectorAll(".chip").forEach(b => b.onclick = () => { state.kind = b.dataset.v; state.cat = ""; state.shown = PAGE; render(); });
+
+    const byKind = inSec.filter(r => !state.kind || (r["종류"] || "기타") === state.kind);
+    const cats = {}; byKind.forEach(r => { const c = (r["카테고리"] || "").replace("AI활용", "AI 활용"); if (c) cats[c] = (cats[c] || 0) + 1; });
+    if (state.cat && !cats[state.cat]) state.cat = "";
+    const catList = Object.entries(cats).sort((a, b) => b[1] - a[1]);
+    $("catChips").innerHTML = catList.length > 1 ? catList.map(([c, n]) =>
+      `<button type="button" class="chip" data-v="${esc(c)}" aria-pressed="${state.cat === c}">#${esc(c)}<span class="c">${n}</span></button>`).join("") : "";
+    $("catChips").querySelectorAll(".chip").forEach(b => b.onclick = () => { state.cat = state.cat === b.dataset.v ? "" : b.dataset.v; state.shown = PAGE; render(); });
+
+    const list = byKind.filter(r => !state.cat || (r["카테고리"] || "").replace("AI활용", "AI 활용") === state.cat);
+    $("hint").textContent = sec.hint;
+    $("listTitle").textContent = `${sec.title} ${list.length}`;
+
+    const L = $("list");
+    if (state.loading && !rows.length) { L.innerHTML = `<div class="skel"></div><div class="skel"></div>`; $("more").hidden = true; return; }
+    if (!list.length) {
+      L.innerHTML = `<div class="empty">${!rows.length ? "노션에서 스크랩을 불러오면 여기에 카드로 보여요. 위의 새로고침을 눌러 주세요." : state.section === "inbox" ? "오늘 정할 스크랩이 없어요. 새 스크랩이 노션에 쌓이면 여기에 나타나요." : "이 상태의 스크랩이 아직 없어요."}</div>`;
+      $("more").hidden = true; return;
+    }
+    L.innerHTML = list.slice(0, state.shown).map(cardHTML).join("");
+    $("more").hidden = list.length <= state.shown;
+    $("more").textContent = `더 보기 (${list.length - state.shown}건 남음)`;
+    L.querySelectorAll(".card").forEach(bindCard);
+  }
+
+  function cardHTML(r) {
+    const w = when(r["date:보낸 날짜:start"] || r["date:발행일:start"]);
+    const s = r["상태"] && r["상태"] !== "미검토" ? r["상태"] : "";
+    const fb = r["피드백"] || "";
+    const cat = (r["카테고리"] || "").replace("AI활용", "AI 활용");
+    const link = r["링크"] && /^https?:\/\//.test(r["링크"]) ? r["링크"] : "";
+    return `<article class="card" data-id="${esc(r.url)}">
+      <div class="src"><span class="kind">${esc(r["종류"] || "기타")}</span><span>${esc(r["출처/계정"] || "")}</span>${w.t ? `<span class="when${w.today ? " today" : ""}">${w.t}</span>` : ""}</div>
+      <h3>${esc(clean(r["제목"]))}</h3>
+      ${r["요약"] ? `<p class="sum">${esc(clean(r["요약"]))}</p>` : ""}
+      <div class="tags">${cat ? `<span class="tag">#${esc(cat)}</span>` : ""}${s ? `<span class="tag state" data-s="${esc(s)}">${esc(s)}</span>` : ""}${r["반응"] ? `<span class="react">${esc(r["반응"])}</span>` : ""}</div>
+      <div class="links"><a href="${esc(r.url)}" target="_blank" rel="noopener">노션에서 읽기</a>${link ? `<a class="alt" href="${esc(link)}" target="_blank" rel="noopener">원본 보기</a>` : ""}</div>
+      <div class="actions">
+        <div class="row"><span class="rl">상태</span>${ACTIONS.map(a => `<button type="button" class="act ${a.cls}" data-s="${a.s}" title="${a.tip}" aria-pressed="${s === a.s}">${a.s}</button>`).join("")}</div>
+        <div class="row"><span class="rl">피드백</span>
+          <button type="button" class="act fb" data-fb="좋아요" aria-pressed="${fb === "좋아요"}">좋아요</button>
+          <button type="button" class="act fb" data-fb="별로예요" aria-pressed="${fb === "별로예요"}">별로예요</button>
+        </div>
+      </div>
+    </article>`;
+  }
+
+  function bindCard(card) {
+    const row = state.rows.find(r => r.url === card.dataset.id);
+    if (!row) return;
+    card.querySelectorAll("[data-s]").forEach(b => b.onclick = () => {
+      const prev = row["상태"] ?? null;
+      const next = prev === b.dataset.s ? null : b.dataset.s;
+      setProps(row, { "상태": next }, { "상태": prev }, next ? `‘${next}’로 옮겼어요` : "상태를 비웠어요");
+    });
+    card.querySelectorAll("[data-fb]").forEach(b => b.onclick = () => {
+      const next = row["피드백"] === b.dataset.fb ? null : b.dataset.fb;
+      const props = { "피드백": next };
+      if (next) { props["date:피드백 시각:start"] = new Date().toISOString(); props["date:피드백 시각:is_datetime"] = 1; }
+      setProps(row, props, null, next ? `피드백 ‘${next}’ 저장했어요` : "피드백을 지웠어요");
+    });
+  }
+
+  function go(k) {
+    state.section = k; state.kind = ""; state.cat = ""; state.shown = PAGE;
+    try { localStorage.setItem("scrap.section", k); } catch {}
+    render();
+  }
+
+  $("more").onclick = () => { state.shown += PAGE; render(); };
+  $("refresh").onclick = () => load(true);
+
+  try { const s = localStorage.getItem("scrap.section"); if (s && sectionOf(s)) state.section = s; } catch {}
+  render();
+
+  (async () => {
+    mcp = window.claude && window.claude.use ? await window.claude.use("mcp") : null;
+    if (!mcp) {
+      $("refresh").disabled = true;
+      $("meta").textContent = "";
+      const n = $("notice"); n.hidden = false; n.className = "notice";
+      n.innerHTML = "<p>이 화면에서는 노션에 연결할 수 없어요. claude.ai에서 로그인한 상태로 이 페이지를 열어 주세요.</p>";
+      $("list").innerHTML = `<div class="empty">노션 Contents scrape의 스크랩이 여기에 카드로 보여요.</div>`;
+      return;
+    }
+    load(false);
+  })();
+})();
+</script>
