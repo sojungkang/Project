@@ -53,7 +53,46 @@ body {
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 20px 72px;
 }
-.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+/* Phone/tablet: one column. Desktop (≥1024px): sticky sidebar with tiles + filters, cards in a grid on the right. */
+.wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.side, .main, .filters { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.filters { gap: 10px; }
+.flabel { display: none; color: var(--muted); font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; }
+.main-head { display: flex; flex-direction: column; gap: 6px; }
+.main-head .hint { order: -1; }
+@media (min-width: 760px) {
+  .main .list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .list .empty { grid-column: 1 / -1; }
+}
+@media (min-width: 1024px) {
+  body { padding-block: 32px 72px; }
+  .wrap {
+    max-width: 1320px; display: grid; grid-template-columns: 320px minmax(0, 1fr);
+    gap: 32px; align-items: start;
+  }
+  .side {
+    position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px);
+    max-height: calc(100vh - 48px); overflow-y: auto; gap: 18px; padding-right: 4px;
+  }
+  .side header { flex-direction: column; align-items: flex-start; }
+  .side h1 { font-size: 1.8rem; }
+  .side .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .flabel { display: block; margin-top: 4px; }
+  .flabel:has(+ .chips:empty) { display: none; }
+  .main { gap: 16px; }
+  .main-head { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .main-head .hint { order: 0; max-width: 60ch; text-align: right; }
+  .main h2 { margin: 0; font-size: 1.7rem; }
+}
+@media (min-width: 1680px) {
+  .wrap { max-width: 1640px; }
+  .main .list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (hover: hover) {
+  .card:hover { border-color: var(--muted); }
+  .act:hover:not([aria-pressed="true"]) { background: var(--bg); }
+  .chip:hover:not([aria-pressed="true"]), .tile:hover:not([aria-pressed="true"]) { border-color: var(--muted); }
+}
 button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -149,6 +188,7 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
   padding: 10px 14px 10px 18px; display: flex; gap: 14px; align-items: center;
   max-width: calc(100% - 32px); font-size: 0.92rem; z-index: 20;
 }
+.toast[hidden] { display: none; }
 .toast button { background: none; border: 0; color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 @media (prefers-reduced-motion: no-preference) {
   .card, .tile, .chip, .act { transition: opacity .15s, background-color .15s, color .15s; }
@@ -156,27 +196,36 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
 </style>
 
 <div class="wrap">
-  <header>
-    <h1>해외취업 스크랩함</h1>
-    <button class="btn-ghost" id="refresh" type="button">새로고침</button>
-  </header>
+  <aside class="side">
+    <header>
+      <h1>해외취업 스크랩함</h1>
+      <button class="btn-ghost" id="refresh" type="button">새로고침</button>
+    </header>
 
-  <div class="tiles" id="tiles" role="group" aria-label="상태별 보기"></div>
+    <div class="tiles" id="tiles" role="group" aria-label="상태별 보기"></div>
 
-  <div class="meta" id="meta">노션 Contents scrape에서 불러오는 중…</div>
+    <div class="meta" id="meta">노션 Contents scrape에서 불러오는 중…</div>
 
-  <div id="notice" hidden></div>
+    <div id="notice" hidden></div>
 
-  <div class="chips" id="kindChips" role="group" aria-label="종류"></div>
-  <div class="chips small" id="catChips" role="group" aria-label="카테고리"></div>
+    <div class="filters">
+      <span class="flabel">종류</span>
+      <div class="chips" id="kindChips" role="group" aria-label="종류"></div>
+      <span class="flabel">카테고리</span>
+      <div class="chips small" id="catChips" role="group" aria-label="카테고리"></div>
+    </div>
+  </aside>
 
-  <p class="hint" id="hint"></p>
-
-  <h2 id="listTitle">새 스크랩</h2>
-  <div class="list" id="list">
-    <div class="skel"></div><div class="skel"></div>
-  </div>
-  <button class="btn-ghost more" id="more" type="button" hidden>더 보기</button>
+  <main class="main">
+    <div class="main-head">
+      <h2 id="listTitle">새 스크랩</h2>
+      <p class="hint" id="hint"></p>
+    </div>
+    <div class="list" id="list">
+      <div class="skel"></div><div class="skel"></div>
+    </div>
+    <button class="btn-ghost more" id="more" type="button" hidden>더 보기</button>
+  </main>
 </div>
 
 <div class="toast" id="toast" hidden role="status"><span id="toastMsg"></span><button id="toastUndo" type="button">되돌리기</button></div>
