@@ -170,6 +170,10 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
 .act[aria-pressed="true"] { background: var(--c); color: var(--surface); }
 .act.todo { --c: var(--s-todo); } .act.later { --c: var(--s-later); } .act.ref { --c: var(--s-ref); } .act.drop { --c: var(--s-drop); }
 .act.fb { --c: var(--muted); font-size: 0.85rem; padding: 3px 12px; }
+.act.pub { --c: var(--ink); font-size: 0.88rem; padding: 4px 12px; }
+.act.pub[aria-pressed="true"]::before { content: "✓ "; }
+.row.pubrow { background: var(--bg); border-radius: 12px; padding: 8px 10px; }
+.tag.pubtag { color: var(--s-ref); border-color: currentColor; font-weight: 600; }
 .card .err { color: var(--s-drop); font-size: 0.85rem; margin: 0; }
 
 .notice { background: var(--warn-bg); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
@@ -213,6 +217,8 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
       <div class="chips" id="kindChips" role="group" aria-label="종류"></div>
       <span class="flabel">카테고리</span>
       <div class="chips small" id="catChips" role="group" aria-label="카테고리"></div>
+      <span class="flabel">발행</span>
+      <div class="chips small" id="pubChips" role="group" aria-label="발행 여부"></div>
     </div>
   </aside>
 
@@ -238,7 +244,7 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
 
   const SECTIONS = [
     { k: "inbox", label: "Inbox", match: s => !s || s === "미검토", title: "새 스크랩", hint: "여기 있는 것만 정하면 오늘 체크는 끝이에요. 쓸래요·나중에·참고·제외 중 하나를 고르면 노션 상태가 바로 바뀌어요." },
-    { k: "todo",  label: "쓸래요", match: s => s === "쓸래요", title: "쓸래요", hint: "콘텐츠로 쓰기로 한 스크랩이에요. 다 쓰면 참고로 옮겨 두세요." },
+    { k: "todo",  label: "쓸래요", match: s => s === "쓸래요", title: "쓸래요", hint: "콘텐츠로 쓰기로 한 스크랩이에요. 실제로 올렸으면 Threads·Newsletter·X 중 올린 곳을 체크하세요." },
     { k: "later", label: "나중에", match: s => s === "나중에", title: "나중에", hint: "보류해 둔 스크랩이에요. 시간 날 때 다시 정해요." },
     { k: "ref",   label: "참고", match: s => s === "참고", title: "참고 라이브러리", hint: "알아 두기만 하면 되는 자료를 모아 둔 곳이에요." },
   ];
@@ -251,7 +257,7 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
   ];
 
   const $ = id => document.getElementById(id);
-  const state = { rows: [], loadedAt: null, section: "inbox", kind: "", cat: "", shown: PAGE, loading: false, partial: false };
+  const state = { rows: [], loadedAt: null, section: "inbox", kind: "", cat: "", pub: "", shown: PAGE, loading: false, partial: false };
   let mcp = null, lastUndo = null, toastTimer = null;
 
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -265,6 +271,12 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
     if (diff === 1) return { t: "어제", today: false };
     if (diff < 7) return { t: diff + "일 전", today: false };
     return { t: day.slice(5, 10).replace("-", "/"), today: false };
+  }
+  const CHANNELS = ["Threads", "Newsletter", "X"];
+  function chans(r) {
+    let v = r["발행 채널"];
+    if (typeof v === "string") { try { v = JSON.parse(v); } catch { v = v ? v.split(",").map(s => s.trim()) : []; } }
+    return Array.isArray(v) ? v.filter(Boolean) : [];
   }
   const isTest = r => r["카테고리"] === "테스트" || /^TEST\b/.test(r["제목"] || "");
   const sectionOf = k => k === "drop" ? DROP : SECTIONS.find(x => x.k === k);
@@ -386,7 +398,7 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
     const refWeek = rows.filter(r => r["상태"] === "참고" && (r["date:보낸 날짜:start"] || "") >= weekAgo).length;
     const subs = {
       inbox: `오늘 들어온 것 ${inboxToday}`,
-      todo: "콘텐츠로 쓸 것",
+      todo: (() => { const td = rows.filter(r => r["상태"] === "쓸래요"); const done = td.filter(r => chans(r).length).length; return td.length ? `남은 ${td.length - done} · 발행 ${done}` : "콘텐츠로 쓸 것"; })(),
       later: "보류 · 다시 정하기",
       ref: `최근 1주 ${refWeek}`,
     };
@@ -429,7 +441,14 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
       `<button type="button" class="chip" data-v="${esc(c)}" aria-pressed="${state.cat === c}">#${esc(c)}<span class="c">${n}</span></button>`).join("") : "";
     $("catChips").querySelectorAll(".chip").forEach(b => b.onclick = () => { state.cat = state.cat === b.dataset.v ? "" : b.dataset.v; state.shown = PAGE; render(); });
 
-    const list = byKind.filter(r => !state.cat || (r["카테고리"] || "").replace("AI활용", "AI 활용") === state.cat);
+    const byCat = byKind.filter(r => !state.cat || (r["카테고리"] || "").replace("AI활용", "AI 활용") === state.cat);
+    const pubN = byCat.filter(r => chans(r).length).length;
+    if (state.section !== "todo") state.pub = "";
+    $("pubChips").innerHTML = state.section === "todo" && byCat.length ? [["", "전체", byCat.length], ["no", "아직 안 씀", byCat.length - pubN], ["yes", "발행함", pubN]]
+      .map(([v, l, n]) => `<button type="button" class="chip" data-v="${v}" aria-pressed="${state.pub === v}">${l}<span class="c">${n}</span></button>`).join("") : "";
+    $("pubChips").querySelectorAll(".chip").forEach(b => b.onclick = () => { state.pub = b.dataset.v; state.shown = PAGE; render(); });
+    const list = byCat.filter(r => !state.pub || (state.pub === "yes") === (chans(r).length > 0));
+    if (state.section === "todo" && !state.pub) list.sort((a, b) => (chans(a).length > 0) - (chans(b).length > 0));
     $("hint").textContent = sec.hint;
     $("listTitle").textContent = `${sec.title} ${list.length}`;
 
@@ -451,13 +470,16 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
     const fb = r["피드백"] || "";
     const cat = (r["카테고리"] || "").replace("AI활용", "AI 활용");
     const link = r["링크"] && /^https?:\/\//.test(r["링크"]) ? r["링크"] : "";
+    const ch = chans(r);
+    const showPub = s === "쓸래요" || ch.length > 0;
     return `<article class="card" data-id="${esc(r.url)}">
       <div class="src"><span class="kind">${esc(r["종류"] || "기타")}</span><span>${esc(r["출처/계정"] || "")}</span>${w.t ? `<span class="when${w.today ? " today" : ""}">${w.t}</span>` : ""}</div>
       <h3>${esc(clean(r["제목"]))}</h3>
       ${r["요약"] ? `<p class="sum">${esc(clean(r["요약"]))}</p>` : ""}
-      <div class="tags">${cat ? `<span class="tag">#${esc(cat)}</span>` : ""}${s ? `<span class="tag state" data-s="${esc(s)}">${esc(s)}</span>` : ""}${r["반응"] ? `<span class="react">${esc(r["반응"])}</span>` : ""}</div>
+      <div class="tags">${cat ? `<span class="tag">#${esc(cat)}</span>` : ""}${s ? `<span class="tag state" data-s="${esc(s)}">${esc(s)}</span>` : ""}${ch.length ? `<span class="tag pubtag">발행 · ${esc(ch.join(", "))}</span>` : ""}${r["반응"] ? `<span class="react">${esc(r["반응"])}</span>` : ""}</div>
       <div class="links"><a href="${esc(r.url)}" target="_blank" rel="noopener">노션에서 읽기</a>${link ? `<a class="alt" href="${esc(link)}" target="_blank" rel="noopener">원본 보기</a>` : ""}</div>
       <div class="actions">
+        ${showPub ? `<div class="row pubrow"><span class="rl">발행</span>${CHANNELS.map(c => `<button type="button" class="act pub" data-pub="${c}" aria-pressed="${ch.includes(c)}">${c}</button>`).join("")}</div>` : ""}
         <div class="row"><span class="rl">상태</span>${ACTIONS.map(a => `<button type="button" class="act ${a.cls}" data-s="${a.s}" title="${a.tip}" aria-pressed="${s === a.s}">${a.s}</button>`).join("")}</div>
         <div class="row"><span class="rl">피드백</span>
           <button type="button" class="act fb" data-fb="좋아요" aria-pressed="${fb === "좋아요"}">좋아요</button>
@@ -474,6 +496,12 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
       const prev = row["상태"] ?? null;
       const next = prev === b.dataset.s ? null : b.dataset.s;
       setProps(row, { "상태": next }, { "상태": prev }, next ? `‘${next}’로 옮겼어요` : "상태를 비웠어요");
+    });
+    card.querySelectorAll("[data-pub]").forEach(b => b.onclick = () => {
+      const prev = chans(row), c = b.dataset.pub;
+      const next = prev.includes(c) ? prev.filter(x => x !== c) : CHANNELS.filter(x => x === c || prev.includes(x));
+      setProps(row, { "발행 채널": next.length ? next : null }, { "발행 채널": prev.length ? prev : null },
+        next.includes(c) ? `${c} 발행으로 체크했어요` : `${c} 체크를 풀었어요`);
     });
     card.querySelectorAll("[data-fb]").forEach(b => b.onclick = () => {
       const next = row["피드백"] === b.dataset.fb ? null : b.dataset.fb;
