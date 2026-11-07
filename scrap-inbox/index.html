@@ -432,7 +432,7 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
     if (state.loadedAt) {
       const hh = state.loadedAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
       const dropN = count(DROP);
-      m.innerHTML = `<span>노션 기준 ${hh} 불러옴 · 전체 ${rows.length}건${state.partial ? " (일부만 불러옴)" : ""}</span>` +
+      m.innerHTML = `<span>노션 기준 ${hh} 불러옴 · 전체 ${rows.length}건${state.partial ? " (일부만 불러옴)" : ""}</span><span>· 매일 오전 9시(영국) 자동 새로고침</span>` +
         (dropN ? `<button type="button" class="drop-link" id="dropLink">${state.section === "drop" ? "인박스로 돌아가기" : `제외 ${dropN}건 보기`}</button>` : "");
       const dl = $("dropLink"); if (dl) dl.onclick = () => go(state.section === "drop" ? "inbox" : "drop");
     } else if (!state.loading) {
@@ -575,6 +575,29 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
     render();
   }
 
+  /* Daily refresh at 09:00 UK time (Europe/London, DST-aware); Notion data lands ~08:30. */
+  const REFRESH_TZ = "Europe/London", REFRESH_HOUR = 9;
+  function londonSecs(now) {
+    const parts = new Intl.DateTimeFormat("en-GB", { timeZone: REFRESH_TZ, hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(now);
+    const g = k => +(parts.find(p => p.type === k) || { value: 0 }).value;
+    return g("hour") * 3600 + g("minute") * 60 + g("second");
+  }
+  const lastRefreshMark = () => { const now = new Date(); return now.getTime() - (((londonSecs(now) - REFRESH_HOUR * 3600) % 86400 + 86400) % 86400) * 1000; };
+  let dailyTimer = null;
+  function scheduleDaily() {
+    clearTimeout(dailyTimer);
+    const now = new Date();
+    let wait = ((REFRESH_HOUR * 3600 - londonSecs(now)) % 86400 + 86400) % 86400;
+    if (wait < 5) wait += 86400;
+    dailyTimer = setTimeout(() => { load(true); scheduleDaily(); }, wait * 1000 + 2000);
+  }
+  // Timers pause when the laptop sleeps or the tab is in the background: catch up when the page is seen again.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible" || !mcp || state.loading) return;
+    if (!state.loadedAt || state.loadedAt.getTime() < lastRefreshMark()) load(true);
+    scheduleDaily();
+  });
+
   $("more").onclick = () => { state.shown += PAGE; render(); };
   $("refresh").onclick = () => load(true);
 
@@ -592,6 +615,7 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
       return;
     }
     load(false);
+    scheduleDaily();
   })();
 })();
 </script>
