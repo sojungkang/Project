@@ -152,6 +152,7 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
 .src .when.today { color: var(--today); }
 .card h3 { margin: 0; font-size: 1.08rem; line-height: 1.45; font-weight: 700; text-wrap: balance; overflow-wrap: anywhere; }
 .card p.sum { margin: 0; color: var(--ink); opacity: .86; overflow-wrap: anywhere; }
+.card p.sum.none { color: var(--muted); opacity: 1; font-size: 0.9rem; }
 .tags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .tag { border: 1px solid var(--line); border-radius: 99px; padding: 1px 10px; font-size: 0.8rem; color: var(--muted); }
 .tag.state { font-weight: 600; }
@@ -277,7 +278,12 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
   let mcp = null, lastUndo = null, toastTimer = null;
 
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const clean = s => String(s ?? "").replace(/\\([~*_\[\]()#>`|-])/g, "$1");
+  // Notion text comes back as Markdown: turn links into their label, drop escapes and bold markers.
+  const clean = s => String(s ?? "")
+    .replace(/\[([^\]]+)\]\((?:https?:\/\/|mailto:)[^)\s]*\)/g, "$1")
+    .replace(/\\([\\`*_{}\[\]()#+\-.!~$|<>&"'=:;%@^])/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1");
   const localDay = d => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 10); };
   const today = () => localDay(new Date());
   function when(day) {
@@ -501,7 +507,7 @@ h2 { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; mar
     return `<article class="card" data-id="${esc(r.url)}">
       <div class="src"><span class="kind">${esc(r["종류"] || "기타")}</span><span>${esc(r["출처/계정"] || "")}</span>${w.t ? `<span class="when${w.today ? " today" : ""}">${w.t}</span>` : ""}</div>
       <h3>${esc(clean(r["제목"]))}</h3>
-      ${r["요약"] ? `<p class="sum">${esc(clean(r["요약"]))}</p>` : ""}
+      ${clean(r["요약"]).trim() ? `<p class="sum">${esc(clean(r["요약"]).trim())}</p>` : `<p class="sum none">노션에 요약이 아직 없어요. 원본을 열어 확인해 주세요.</p>`}
       <div class="tags">${cat ? `<span class="tag">#${esc(cat)}</span>` : ""}${s ? `<span class="tag state" data-s="${esc(s)}">${esc(s)}</span>` : ""}${ch.length ? `<span class="tag pubtag">발행 · ${esc(ch.join(", "))}</span>` : ""}${r["반응"] ? `<span class="react">${esc(r["반응"])}</span>` : ""}</div>
       <div class="links"><a href="${esc(r.url)}" target="_blank" rel="noopener">노션에서 읽기</a>${link ? `<a class="alt" href="${esc(link)}" target="_blank" rel="noopener">원본 보기</a>` : ""}${mine.map(c => `<a class="mine" href="${esc(r[c + " 링크"])}" target="_blank" rel="noopener">내 ${c} 글</a>`).join("")}</div>
       <div class="actions">
